@@ -1,0 +1,83 @@
+
+<div class="home-container">
+    
+    <div class="content-header">
+        <h1>Dashboard</h1>
+        <p>Gestión de llamadas automatizadas</p>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+        <h3>Grupos de Contactos</h3>
+        <p class="stat-number">
+          @if (isLoading()) {
+            <span class="loading">...</span>
+          } @else {
+            {{ contactGroupsCount() }}
+          }
+        </p>
+        <p class="stat-description">grupos activos</p>
+        </div>
+        
+        <div class="stat-card">
+        <h3>Contactos</h3>
+        <p class="stat-number">
+          @if (isLoading()) {
+            <span class="loading">...</span>
+          } @else {
+            {{ contactsCount() }}
+          }
+        </p>
+        <p class="stat-description">contactos registrados</p>
+        </div>
+        
+        <div class="stat-card">
+        <h3>Triggers</h3>
+        <p class="stat-number">
+          @if (isLoading()) {
+            <span class="loading">...</span>
+          } @else {
+            {{ triggersCount() }}
+          }
+        </p>
+        <p class="stat-description">triggers configurados</p>
+        </div>
+        
+        <div class="stat-card">
+        <h3>Llamadas Hoy</h3>
+        <p class="stat-number">
+          @if (isLoading()) {
+            <span class="loading">...</span>
+          } @else {
+            {{ dailyCallsCount() }}
+          }
+        </p>
+        <p class="stat-description">llamadas realizadas</p>
+        </div>
+    </div>
+
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="action-buttons">
+        <a routerLink="/dashboard/contact-groups" class="action-btn primary">
+            <span class="action-icon">➕</span>
+            Nuevo Grupo
+        </a>
+        <a routerLink="/dashboard/contacts" class="action-btn secondary">
+            <span class="action-icon">👤</span>
+            Nuevo Contacto
+        </a>
+        <a routerLink="/dashboard/triggers" class="action-btn tertiary">
+            <span class="action-icon">⚡</span>
+            Nuevo Trigger
+        </a>
+        <a routerLink="/dashboard/call-logs" class="action-btn quaternary">
+            <span class="action-icon">📞</span>
+            Registro de Llamadas
+        </a>
+        </div>
+    </div>
+
+</div>
+
+

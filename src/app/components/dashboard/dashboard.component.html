@@ -1,0 +1,45 @@
+<div class="dashboard-container">
+  <nav class="sidebar">
+    <div class="sidebar-header">
+      <h2>MailToCall</h2>
+    </div>
+    
+    <div class="nav-menu">
+      <a routerLink="/dashboard/home" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📊</span>
+        Dashboard
+      </a>
+      <a routerLink="/dashboard/contact-groups" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">👥</span>
+        Grupos de Contactos
+      </a>
+      <a routerLink="/dashboard/contacts" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📱</span>
+        Contactos
+      </a>
+      <a routerLink="/dashboard/triggers" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">⚡</span>
+        Triggers
+      </a>
+      <a routerLink="/dashboard/call-logs" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📞</span>
+        Registro de Llamadas
+      </a>
+      <a routerLink="/dashboard/email-events" routerLinkActive="active" class="nav-item">
+        <span class="nav-icon">📧</span>
+        Eventos de Email
+      </a>
+    </div>
+    
+    <div class="sidebar-footer">
+      <button (click)="logout()" class="logout-btn">
+        <span class="nav-icon">🚪</span>
+        Cerrar Sesión
+      </button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
