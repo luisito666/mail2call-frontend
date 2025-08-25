@@ -7,7 +7,7 @@ import { EmailEvent } from '../models/interfaces';
   providedIn: 'root'
 })
 export class EmailEventService {
-  private apiUrl = 'http://localhost:8000/api/v1/email-events';
+  private apiUrl = 'https://saas-api.luisito.dev/api/v1/email-events';
 
   constructor(private http: HttpClient) { }
 

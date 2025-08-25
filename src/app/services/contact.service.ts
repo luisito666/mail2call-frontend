@@ -7,7 +7,7 @@ import { Contact, ContactCreate, ContactUpdate } from '../models/interfaces';
   providedIn: 'root'
 })
 export class ContactService {
-  private readonly baseUrl = 'http://localhost:8000/api/v1/contacts';
+  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/contacts';
 
   constructor(private http: HttpClient) {}
 
