@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { CallLogService } from '../../services/call-log.service';
 import { ContactService } from '../../services/contact.service';
-import { CallLog, Contact } from '../../models/interfaces';
+import { CallLog, Contact, PaginatedResponse } from '../../models/interfaces';
 
 @Component({
   selector: 'app-call-logs',
@@ -115,6 +115,79 @@ import { CallLog, Contact } from '../../models/interfaces';
           </div>
         }
       </div>
+
+      @if (paginationInfo().total_pages > 1) {
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Mostrando {{ (paginationInfo().page - 1) * paginationInfo().per_page + 1 }} - 
+            {{ Math.min(paginationInfo().page * paginationInfo().per_page, paginationInfo().total) }} 
+            de {{ paginationInfo().total }} registros de llamadas
+          </div>
+          
+          <div class="pagination-controls">
+            <button 
+              (click)="goToPage(1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Primero
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().page - 1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Anterior
+            </button>
+            
+            @for (pageNum of getVisiblePages(); track pageNum) {
+              @if (pageNum === -1) {
+                <span class="pagination-ellipsis">...</span>
+              } @else {
+                <button 
+                  (click)="goToPage(pageNum)" 
+                  [disabled]="isLoading()"
+                  [class]="'pagination-btn ' + (pageNum === paginationInfo().page ? 'btn-primary' : 'btn-secondary')"
+                >
+                  {{ pageNum }}
+                </button>
+              }
+            }
+            
+            <button 
+              (click)="goToPage(paginationInfo().page + 1)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Siguiente
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().total_pages)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Último
+            </button>
+          </div>
+
+          <div class="pagination-size">
+            <label for="pageSize">Elementos por página:</label>
+            <select 
+              id="pageSize" 
+              [value]="paginationInfo().per_page" 
+              (change)="changePageSize($event)"
+              [disabled]="isLoading()"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+      }
 
       <!-- Modal de Detalles -->
       @if (showDetailsModal()) {
@@ -632,6 +705,75 @@ import { CallLog, Contact } from '../../models/interfaces';
       .details-grid {
         grid-template-columns: 1fr;
       }
+
+      .pagination-container {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+
+      .pagination-controls {
+        justify-content: center;
+      }
+
+      .pagination-info,
+      .pagination-size {
+        justify-content: center;
+      }
+    }
+
+    .pagination-container {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .pagination-info {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pagination-ellipsis {
+      padding: 0 0.5rem;
+      display: flex;
+      align-items: center;
+      color: #6b7280;
+    }
+
+    .pagination-size {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .pagination-size select {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.875rem;
     }
   `]
 })
@@ -639,9 +781,17 @@ export class CallLogsComponent implements OnInit {
   callLogs = signal<CallLog[]>([]);
   filteredLogs = signal<CallLog[]>([]);
   contacts = signal<Contact[]>([]);
+  paginationInfo = signal<PaginatedResponse<CallLog>>({
+    items: [],
+    total: 0,
+    page: 1,
+    per_page: 10,
+    total_pages: 0
+  });
   isLoading = signal(true);
   showDetailsModal = signal(false);
   selectedLog = signal<CallLog | null>(null);
+  Math = Math;
 
   statusFilter = new FormControl('');
   searchFilter = new FormControl('');
@@ -656,14 +806,20 @@ export class CallLogsComponent implements OnInit {
     this.setupFilters();
   }
 
-  loadData(): void {
+  loadData(page?: number, per_page?: number): void {
     this.isLoading.set(true);
     
+    const currentPage = page || this.paginationInfo().page;
+    const currentPerPage = per_page || this.paginationInfo().per_page;
+    
     Promise.all([
-      this.callLogService.getCallLogs().toPromise(),
-      this.contactService.getContacts().toPromise()
-    ]).then(([logs, contacts]) => {
-      this.callLogs.set(logs || []);
+      this.callLogService.getCallLogs(currentPage, currentPerPage).toPromise(),
+      this.contactService.getAllContacts().toPromise()
+    ]).then(([logsResponse, contacts]) => {
+      if (logsResponse) {
+        this.paginationInfo.set(logsResponse);
+        this.callLogs.set(logsResponse.items);
+      }
       this.contacts.set(contacts || []);
       this.applyFilters();
       this.isLoading.set(false);
@@ -784,5 +940,53 @@ export class CallLogsComponent implements OnInit {
   clearFilters(): void {
     this.statusFilter.setValue('');
     this.searchFilter.setValue('');
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.paginationInfo().total_pages) {
+      this.loadData(page);
+    }
+  }
+
+  changePageSize(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPerPage = parseInt(target.value);
+    this.loadData(1, newPerPage);
+  }
+
+  getVisiblePages(): number[] {
+    const current = this.paginationInfo().page;
+    const total = this.paginationInfo().total_pages;
+    const pages: number[] = [];
+    
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (current <= 4) {
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      } else if (current >= total - 3) {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = total - 4; i <= total; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = current - 1; i <= current + 1; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      }
+    }
+    
+    return pages;
   }
 }

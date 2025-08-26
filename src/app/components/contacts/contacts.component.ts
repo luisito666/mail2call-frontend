@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ContactService } from '../../services/contact.service';
 import { ContactGroupService } from '../../services/contact-group.service';
-import { Contact, ContactCreate, ContactUpdate, ContactGroup } from '../../models/interfaces';
+import { Contact, ContactCreate, ContactUpdate, ContactGroup, PaginatedResponse } from '../../models/interfaces';
 
 @Component({
   selector: 'app-contacts',
@@ -81,6 +81,79 @@ import { Contact, ContactCreate, ContactUpdate, ContactGroup } from '../../model
           </div>
         }
       </div>
+
+      @if (paginationInfo().total_pages > 1) {
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Mostrando {{ (paginationInfo().page - 1) * paginationInfo().per_page + 1 }} - 
+            {{ Math.min(paginationInfo().page * paginationInfo().per_page, paginationInfo().total) }} 
+            de {{ paginationInfo().total }} contactos
+          </div>
+          
+          <div class="pagination-controls">
+              <button 
+                (click)="goToPage(1)" 
+                [disabled]="paginationInfo().page === 1 || isLoading()"
+                class="btn-secondary pagination-btn"
+              >
+                Primero
+              </button>
+              
+              <button 
+                (click)="goToPage(paginationInfo().page - 1)" 
+                [disabled]="paginationInfo().page === 1 || isLoading()"
+                class="btn-secondary pagination-btn"
+              >
+                Anterior
+              </button>
+              
+              @for (pageNum of getVisiblePages(); track pageNum) {
+                @if (pageNum === -1) {
+                  <span class="pagination-ellipsis">...</span>
+                } @else {
+                  <button 
+                    (click)="goToPage(pageNum)" 
+                    [disabled]="isLoading()"
+                    [class]="'pagination-btn ' + (pageNum === paginationInfo().page ? 'btn-primary' : 'btn-secondary')"
+                  >
+                    {{ pageNum }}
+                  </button>
+                }
+              }
+              
+              <button 
+                (click)="goToPage(paginationInfo().page + 1)" 
+                [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+                class="btn-secondary pagination-btn"
+              >
+                Siguiente
+              </button>
+              
+              <button 
+                (click)="goToPage(paginationInfo().total_pages)" 
+                [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+                class="btn-secondary pagination-btn"
+              >
+                Último
+              </button>
+            </div>
+
+          <div class="pagination-size">
+            <label for="pageSize">Elementos por página:</label>
+            <select 
+              id="pageSize" 
+              [value]="paginationInfo().per_page" 
+              (change)="changePageSize($event)"
+              [disabled]="isLoading()"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+      }
 
       @if (showModal()) {
         <div class="modal-overlay" (click)="closeModal()">
@@ -564,17 +637,96 @@ import { Contact, ContactCreate, ContactUpdate, ContactGroup } from '../../model
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    .pagination-container {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .pagination-info {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pagination-ellipsis {
+      padding: 0 0.5rem;
+      display: flex;
+      align-items: center;
+      color: #6b7280;
+    }
+
+    .pagination-size {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .pagination-size select {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 768px) {
+      .pagination-container {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+
+      .pagination-controls {
+        justify-content: center;
+      }
+
+      .pagination-info,
+      .pagination-size {
+        justify-content: center;
+      }
+    }
   `]
 })
 export class ContactsComponent implements OnInit {
   contacts = signal<Contact[]>([]);
   contactGroups = signal<ContactGroup[]>([]);
+  paginationInfo = signal<PaginatedResponse<Contact>>({
+    items: [],
+    total: 0,
+    page: 1,
+    per_page: 10,
+    total_pages: 0
+  });
   showModal = signal(false);
   isLoading = signal(true);
   isSaving = signal(false);
   isEditing = signal(false);
   editingId = signal<string | null>(null);
   selectedGroupIds = signal<string[]>([]);
+  Math = Math;
 
   contactForm = new FormGroup({
     name: new FormControl('', [Validators.required]),
@@ -594,14 +746,20 @@ export class ContactsComponent implements OnInit {
     this.loadData();
   }
 
-  loadData(): void {
+  loadData(page?: number, per_page?: number): void {
     this.isLoading.set(true);
     
+    const currentPage = page || this.paginationInfo().page;
+    const currentPerPage = per_page || this.paginationInfo().per_page;
+    
     Promise.all([
-      this.contactService.getContacts().toPromise(),
-      this.contactGroupService.getContactGroups().toPromise()
-    ]).then(([contacts, groups]) => {
-      this.contacts.set(contacts || []);
+      this.contactService.getContacts(currentPage, currentPerPage).toPromise(),
+      this.contactGroupService.getAllContactGroups().toPromise()
+    ]).then(([contactsResponse, groups]) => {
+      if (contactsResponse) {
+        this.paginationInfo.set(contactsResponse);
+        this.contacts.set(contactsResponse.items);
+      }
       this.contactGroups.set(groups || []);
       this.isLoading.set(false);
     }).catch(error => {
@@ -724,5 +882,53 @@ export class ContactsComponent implements OnInit {
         }
       });
     }
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.paginationInfo().total_pages) {
+      this.loadData(page);
+    }
+  }
+
+  changePageSize(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPerPage = parseInt(target.value);
+    this.loadData(1, newPerPage);
+  }
+
+  getVisiblePages(): number[] {
+    const current = this.paginationInfo().page;
+    const total = this.paginationInfo().total_pages;
+    const pages: number[] = [];
+    
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (current <= 4) {
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      } else if (current >= total - 3) {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = total - 4; i <= total; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = current - 1; i <= current + 1; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      }
+    }
+    
+    return pages;
   }
 }

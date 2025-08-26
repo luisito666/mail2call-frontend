@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ContactGroupService } from '../../services/contact-group.service';
-import { ContactGroup, ContactGroupCreate, ContactGroupUpdate } from '../../models/interfaces';
+import { ContactGroup, ContactGroupCreate, ContactGroupUpdate, PaginatedResponse } from '../../models/interfaces';
 
 @Component({
   selector: 'app-contact-groups',
@@ -61,6 +61,79 @@ import { ContactGroup, ContactGroupCreate, ContactGroupUpdate } from '../../mode
           </div>
         }
       </div>
+
+      @if (paginationInfo().total_pages > 1) {
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Mostrando {{ (paginationInfo().page - 1) * paginationInfo().per_page + 1 }} - 
+            {{ Math.min(paginationInfo().page * paginationInfo().per_page, paginationInfo().total) }} 
+            de {{ paginationInfo().total }} grupos
+          </div>
+          
+          <div class="pagination-controls">
+            <button 
+              (click)="goToPage(1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Primero
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().page - 1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Anterior
+            </button>
+            
+            @for (pageNum of getVisiblePages(); track pageNum) {
+              @if (pageNum === -1) {
+                <span class="pagination-ellipsis">...</span>
+              } @else {
+                <button 
+                  (click)="goToPage(pageNum)" 
+                  [disabled]="isLoading()"
+                  [class]="'pagination-btn ' + (pageNum === paginationInfo().page ? 'btn-primary' : 'btn-secondary')"
+                >
+                  {{ pageNum }}
+                </button>
+              }
+            }
+            
+            <button 
+              (click)="goToPage(paginationInfo().page + 1)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Siguiente
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().total_pages)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Último
+            </button>
+          </div>
+
+          <div class="pagination-size">
+            <label for="pageSize">Elementos por página:</label>
+            <select 
+              id="pageSize" 
+              [value]="paginationInfo().per_page" 
+              (change)="changePageSize($event)"
+              [disabled]="isLoading()"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+      }
 
       @if (showModal()) {
         <div class="modal-overlay" (click)="closeModal()">
@@ -448,15 +521,94 @@ import { ContactGroup, ContactGroupCreate, ContactGroupUpdate } from '../../mode
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
+
+    .pagination-container {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .pagination-info {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pagination-ellipsis {
+      padding: 0 0.5rem;
+      display: flex;
+      align-items: center;
+      color: #6b7280;
+    }
+
+    .pagination-size {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .pagination-size select {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 768px) {
+      .pagination-container {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+
+      .pagination-controls {
+        justify-content: center;
+      }
+
+      .pagination-info,
+      .pagination-size {
+        justify-content: center;
+      }
+    }
   `]
 })
 export class ContactGroupsComponent implements OnInit {
   contactGroups = signal<ContactGroup[]>([]);
+  paginationInfo = signal<PaginatedResponse<ContactGroup>>({
+    items: [],
+    total: 0,
+    page: 1,
+    per_page: 10,
+    total_pages: 0
+  });
   showModal = signal(false);
   isLoading = signal(true);
   isSaving = signal(false);
   isEditing = signal(false);
   editingId = signal<string | null>(null);
+  Math = Math;
 
   groupForm = new FormGroup({
     name: new FormControl('', [Validators.required]),
@@ -471,11 +623,16 @@ export class ContactGroupsComponent implements OnInit {
     this.loadContactGroups();
   }
 
-  loadContactGroups(): void {
+  loadContactGroups(page?: number, per_page?: number): void {
     this.isLoading.set(true);
-    this.contactGroupService.getContactGroups().subscribe({
-      next: (groups) => {
-        this.contactGroups.set(groups);
+    
+    const currentPage = page || this.paginationInfo().page;
+    const currentPerPage = per_page || this.paginationInfo().per_page;
+    
+    this.contactGroupService.getContactGroups(currentPage, currentPerPage).subscribe({
+      next: (response) => {
+        this.paginationInfo.set(response);
+        this.contactGroups.set(response.items);
         this.isLoading.set(false);
       },
       error: (error) => {
@@ -580,5 +737,53 @@ export class ContactGroupsComponent implements OnInit {
       month: 'short',
       day: 'numeric'
     });
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.paginationInfo().total_pages) {
+      this.loadContactGroups(page);
+    }
+  }
+
+  changePageSize(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPerPage = parseInt(target.value);
+    this.loadContactGroups(1, newPerPage);
+  }
+
+  getVisiblePages(): number[] {
+    const current = this.paginationInfo().page;
+    const total = this.paginationInfo().total_pages;
+    const pages: number[] = [];
+    
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (current <= 4) {
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      } else if (current >= total - 3) {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = total - 4; i <= total; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = current - 1; i <= current + 1; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      }
+    }
+    
+    return pages;
   }
 }

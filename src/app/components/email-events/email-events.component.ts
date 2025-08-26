@@ -2,7 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { EmailEventService } from '../../services/email-event.service';
-import { EmailEvent } from '../../models/interfaces';
+import { EmailEvent, PaginatedResponse } from '../../models/interfaces';
 
 @Component({
   selector: 'app-email-events',
@@ -112,6 +112,79 @@ import { EmailEvent } from '../../models/interfaces';
           </div>
         }
       </div>
+
+      @if (paginationInfo().total_pages > 1) {
+        <div class="pagination-container">
+          <div class="pagination-info">
+            Mostrando {{ (paginationInfo().page - 1) * paginationInfo().per_page + 1 }} - 
+            {{ Math.min(paginationInfo().page * paginationInfo().per_page, paginationInfo().total) }} 
+            de {{ paginationInfo().total }} eventos de email
+          </div>
+          
+          <div class="pagination-controls">
+            <button 
+              (click)="goToPage(1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Primero
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().page - 1)" 
+              [disabled]="paginationInfo().page === 1 || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Anterior
+            </button>
+            
+            @for (pageNum of getVisiblePages(); track pageNum) {
+              @if (pageNum === -1) {
+                <span class="pagination-ellipsis">...</span>
+              } @else {
+                <button 
+                  (click)="goToPage(pageNum)" 
+                  [disabled]="isLoading()"
+                  [class]="'pagination-btn ' + (pageNum === paginationInfo().page ? 'btn-primary' : 'btn-secondary')"
+                >
+                  {{ pageNum }}
+                </button>
+              }
+            }
+            
+            <button 
+              (click)="goToPage(paginationInfo().page + 1)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Siguiente
+            </button>
+            
+            <button 
+              (click)="goToPage(paginationInfo().total_pages)" 
+              [disabled]="paginationInfo().page === paginationInfo().total_pages || isLoading()"
+              class="btn-secondary pagination-btn"
+            >
+              Último
+            </button>
+          </div>
+
+          <div class="pagination-size">
+            <label for="pageSize">Elementos por página:</label>
+            <select 
+              id="pageSize" 
+              [value]="paginationInfo().per_page" 
+              (change)="changePageSize($event)"
+              [disabled]="isLoading()"
+            >
+              <option value="5">5</option>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+            </select>
+          </div>
+        </div>
+      }
 
       <!-- Modal de Detalles -->
       @if (showDetailsModal()) {
@@ -565,6 +638,75 @@ import { EmailEvent } from '../../models/interfaces';
       .details-grid {
         grid-template-columns: 1fr;
       }
+
+      .pagination-container {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+      }
+
+      .pagination-controls {
+        justify-content: center;
+      }
+
+      .pagination-info,
+      .pagination-size {
+        justify-content: center;
+      }
+    }
+
+    .pagination-container {
+      margin-top: 2rem;
+      padding: 1rem;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .pagination-info {
+      color: #6b7280;
+      font-size: 0.875rem;
+    }
+
+    .pagination-controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination-btn {
+      min-width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pagination-ellipsis {
+      padding: 0 0.5rem;
+      display: flex;
+      align-items: center;
+      color: #6b7280;
+    }
+
+    .pagination-size {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+
+    .pagination-size select {
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      font-size: 0.875rem;
     }
   `]
 })
@@ -572,9 +714,17 @@ export class EmailEventsComponent implements OnInit {
   emailEvents = signal<EmailEvent[]>([]);
   filteredEvents = signal<EmailEvent[]>([]);
   uniqueTriggers = signal<string[]>([]);
+  paginationInfo = signal<PaginatedResponse<EmailEvent>>({
+    items: [],
+    total: 0,
+    page: 1,
+    per_page: 10,
+    total_pages: 0
+  });
   isLoading = signal(true);
   showDetailsModal = signal(false);
   selectedEvent = signal<EmailEvent | null>(null);
+  Math = Math;
 
   statusFilter = new FormControl('');
   triggerFilter = new FormControl('');
@@ -589,13 +739,17 @@ export class EmailEventsComponent implements OnInit {
     this.setupFilters();
   }
 
-  loadData(): void {
+  loadData(page?: number, per_page?: number): void {
     this.isLoading.set(true);
     
-    this.emailEventService.getEmailEvents().subscribe({
-      next: (events) => {
-        this.emailEvents.set(events);
-        this.extractUniqueTriggers(events);
+    const currentPage = page || this.paginationInfo().page;
+    const currentPerPage = per_page || this.paginationInfo().per_page;
+    
+    this.emailEventService.getEmailEvents(currentPage, currentPerPage).subscribe({
+      next: (response) => {
+        this.paginationInfo.set(response);
+        this.emailEvents.set(response.items);
+        this.extractUniqueTriggers(response.items);
         this.applyFilters();
         this.isLoading.set(false);
       },
@@ -722,5 +876,53 @@ export class EmailEventsComponent implements OnInit {
     this.statusFilter.setValue('');
     this.triggerFilter.setValue('');
     this.searchFilter.setValue('');
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.paginationInfo().total_pages) {
+      this.loadData(page);
+    }
+  }
+
+  changePageSize(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    const newPerPage = parseInt(target.value);
+    this.loadData(1, newPerPage);
+  }
+
+  getVisiblePages(): number[] {
+    const current = this.paginationInfo().page;
+    const total = this.paginationInfo().total_pages;
+    const pages: number[] = [];
+    
+    if (total <= 7) {
+      for (let i = 1; i <= total; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (current <= 4) {
+        for (let i = 1; i <= 5; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      } else if (current >= total - 3) {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = total - 4; i <= total; i++) {
+          pages.push(i);
+        }
+      } else {
+        pages.push(1);
+        pages.push(-1);
+        for (let i = current - 1; i <= current + 1; i++) {
+          pages.push(i);
+        }
+        pages.push(-1);
+        pages.push(total);
+      }
+    }
+    
+    return pages;
   }
 }

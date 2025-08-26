@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { CallLog } from '../models/interfaces';
+import { map } from 'rxjs/operators';
+import { CallLog, PaginatedResponse } from '../models/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -11,10 +12,18 @@ export class CallLogService {
 
   constructor(private http: HttpClient) {}
 
-  getCallLogs(skip = 0, limit = 100): Observable<CallLog[]> {
-    return this.http.get<CallLog[]>(`${this.baseUrl}/`, {
-      params: { skip: skip.toString(), limit: limit.toString() }
+  getCallLogs(page = 1, per_page = 10): Observable<PaginatedResponse<CallLog>> {
+    return this.http.get<PaginatedResponse<CallLog>>(`${this.baseUrl}/`, {
+      params: { page: page.toString(), per_page: per_page.toString() }
     });
+  }
+
+  getAllCallLogs(): Observable<CallLog[]> {
+    return this.http.get<PaginatedResponse<CallLog>>(`${this.baseUrl}/`, {
+      params: { page: '1', per_page: '100' }
+    }).pipe(
+      map(response => response.items)
+    );
   }
 
   getCallLog(id: number): Observable<CallLog> {

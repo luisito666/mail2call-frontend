@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Trigger, TriggerCreate, TriggerUpdate } from '../models/interfaces';
+import { Trigger, TriggerCreate, TriggerUpdate, PaginatedResponse } from '../models/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -11,9 +11,9 @@ export class TriggerService {
 
   constructor(private http: HttpClient) {}
 
-  getTriggers(skip = 0, limit = 100): Observable<Trigger[]> {
-    return this.http.get<Trigger[]>(`${this.baseUrl}/`, {
-      params: { skip: skip.toString(), limit: limit.toString() }
+  getTriggers(page = 1, per_page = 10): Observable<PaginatedResponse<Trigger>> {
+    return this.http.get<PaginatedResponse<Trigger>>(`${this.baseUrl}/`, {
+      params: { page: page.toString(), per_page: per_page.toString() }
     });
   }
 

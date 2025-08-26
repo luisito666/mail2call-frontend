@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { ContactGroup, ContactGroupCreate, ContactGroupUpdate } from '../models/interfaces';
+import { map } from 'rxjs/operators';
+import { ContactGroup, ContactGroupCreate, ContactGroupUpdate, PaginatedResponse } from '../models/interfaces';
 
 @Injectable({
   providedIn: 'root'
@@ -11,10 +12,18 @@ export class ContactGroupService {
 
   constructor(private http: HttpClient) {}
 
-  getContactGroups(skip = 0, limit = 100): Observable<ContactGroup[]> {
-    return this.http.get<ContactGroup[]>(`${this.baseUrl}/`, {
-      params: { skip: skip.toString(), limit: limit.toString() }
+  getContactGroups(page = 1, per_page = 10): Observable<PaginatedResponse<ContactGroup>> {
+    return this.http.get<PaginatedResponse<ContactGroup>>(`${this.baseUrl}/`, {
+      params: { page: page.toString(), per_page: per_page.toString() }
     });
+  }
+
+  getAllContactGroups(): Observable<ContactGroup[]> {
+    return this.http.get<PaginatedResponse<ContactGroup>>(`${this.baseUrl}/`, {
+      params: { page: '1', per_page: '100' }
+    }).pipe(
+      map(response => response.items)
+    );
   }
 
   getContactGroup(id: string): Observable<ContactGroup> {
