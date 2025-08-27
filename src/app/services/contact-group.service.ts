@@ -8,7 +8,7 @@ import { ContactGroup, ContactGroupCreate, ContactGroupUpdate, PaginatedResponse
   providedIn: 'root'
 })
 export class ContactGroupService {
-  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/contact-groups';
+  private readonly baseUrl = 'http://localhost:8000/api/v1/contact-groups';
 
   constructor(private http: HttpClient) {}
 

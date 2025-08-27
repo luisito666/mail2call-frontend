@@ -7,7 +7,7 @@ import { Trigger, TriggerCreate, TriggerUpdate, PaginatedResponse } from '../mod
   providedIn: 'root'
 })
 export class TriggerService {
-  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/triggers';
+  private readonly baseUrl = 'http://localhost:8000/api/v1/triggers';
 
   constructor(private http: HttpClient) {}
 

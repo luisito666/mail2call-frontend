@@ -8,7 +8,7 @@ import { EmailEvent, PaginatedResponse } from '../models/interfaces';
   providedIn: 'root'
 })
 export class EmailEventService {
-  private apiUrl = 'https://saas-api.luisito.dev/api/v1/email-events';
+  private apiUrl = 'http://localhost:8000/api/v1/email-events';
 
   constructor(private http: HttpClient) { }
 

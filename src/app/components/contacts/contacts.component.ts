@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { ContactService } from '../../services/contact.service';
 import { ContactGroupService } from '../../services/contact-group.service';
 import { Contact, ContactCreate, ContactUpdate, ContactGroup, PaginatedResponse } from '../../models/interfaces';
@@ -17,6 +18,48 @@ import { Contact, ContactCreate, ContactUpdate, ContactGroup, PaginatedResponse 
           <span class="icon">➕</span>
           Nuevo Contacto
         </button>
+      </div>
+
+      <div class="search-section">
+        <div class="search-controls">
+          <input 
+            type="text" 
+            [formControl]="searchQuery"
+            placeholder="Buscar contactos por nombre, teléfono, rol o departamento..."
+            class="search-input"
+          />
+          <button 
+            (click)="clearSearch()" 
+            class="btn-secondary clear-btn"
+            [disabled]="!hasActiveSearch()"
+          >
+            Limpiar
+          </button>
+        </div>
+        
+        <div class="advanced-filters">
+          <select [formControl]="groupFilter" class="filter-select">
+            <option value="">Todos los grupos</option>
+            @for (group of contactGroups(); track group.id) {
+              <option [value]="group.id">{{ group.name }}</option>
+            }
+          </select>
+          
+          <select [formControl]="statusFilter" class="filter-select">
+            <option value="">Todos los estados</option>
+            <option [value]="true">Activos</option>
+            <option [value]="false">Inactivos</option>
+          </select>
+          
+          <select [formControl]="priorityFilter" class="filter-select">
+            <option value="">Todas las prioridades</option>
+            <option value="1">1 - Urgente</option>
+            <option value="2">2 - Crítica</option>
+            <option value="3">3 - Alta</option>
+            <option value="4">4 - Media</option>
+            <option value="5">5 - Baja</option>
+          </select>
+        </div>
       </div>
 
       <div class="contacts-table-container">
@@ -290,7 +333,7 @@ import { Contact, ContactCreate, ContactUpdate, ContactGroup, PaginatedResponse 
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
 
     .page-header h1 {
@@ -298,6 +341,78 @@ import { Contact, ContactCreate, ContactUpdate, ContactGroup, PaginatedResponse 
       font-size: 2rem;
       font-weight: 700;
       color: #1f2937;
+    }
+
+    .search-section {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .search-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+    }
+
+    .clear-btn {
+      padding: 0.75rem 1.5rem;
+      white-space: nowrap;
+    }
+
+    .clear-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .advanced-filters {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .filter-select {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      background: white;
+      transition: border-color 0.2s;
+    }
+
+    .filter-select:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+    }
+
+    @media (max-width: 768px) {
+      .search-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .advanced-filters {
+        grid-template-columns: 1fr;
+      }
     }
 
     .contacts-table-container {
@@ -737,6 +852,12 @@ export class ContactsComponent implements OnInit {
     is_active: new FormControl(true)
   });
 
+  // Controles de búsqueda
+  searchQuery = new FormControl('');
+  groupFilter = new FormControl('');
+  statusFilter = new FormControl('');
+  priorityFilter = new FormControl('');
+
   constructor(
     private contactService: ContactService,
     private contactGroupService: ContactGroupService
@@ -744,6 +865,7 @@ export class ContactsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.setupSearchListeners();
   }
 
   loadData(page?: number, per_page?: number): void {
@@ -752,8 +874,28 @@ export class ContactsComponent implements OnInit {
     const currentPage = page || this.paginationInfo().page;
     const currentPerPage = per_page || this.paginationInfo().per_page;
     
+    // Construir parámetros de búsqueda
+    const searchParams: any = {
+      page: currentPage,
+      per_page: currentPerPage
+    };
+
+    // Agregar filtros de búsqueda si tienen valor
+    const query = this.searchQuery.value?.trim();
+    if (query) searchParams.q = query;
+
+    const groupId = this.groupFilter.value;
+    if (groupId) searchParams.group_id = groupId;
+
+    const isActive = this.statusFilter.value;
+    if (isActive !== '') searchParams.is_active = isActive === 'true';
+
+    const priority = this.priorityFilter.value;
+    if (priority) searchParams.priority_min = parseInt(priority);
+    if (priority) searchParams.priority_max = parseInt(priority);
+
     Promise.all([
-      this.contactService.getContacts(currentPage, currentPerPage).toPromise(),
+      this.contactService.searchContacts(searchParams).toPromise(),
       this.contactGroupService.getAllContactGroups().toPromise()
     ]).then(([contactsResponse, groups]) => {
       if (contactsResponse) {
@@ -766,6 +908,46 @@ export class ContactsComponent implements OnInit {
       console.error('Error loading data:', error);
       this.isLoading.set(false);
     });
+  }
+
+  setupSearchListeners(): void {
+    // Búsqueda con debounce para el campo de texto
+    this.searchQuery.valueChanges.pipe(
+      debounceTime(500),
+      distinctUntilChanged()
+    ).subscribe(() => {
+      this.loadData(1); // Resetear a página 1 al buscar
+    });
+
+    // Filtros instantáneos
+    this.groupFilter.valueChanges.subscribe(() => {
+      this.loadData(1);
+    });
+
+    this.statusFilter.valueChanges.subscribe(() => {
+      this.loadData(1);
+    });
+
+    this.priorityFilter.valueChanges.subscribe(() => {
+      this.loadData(1);
+    });
+  }
+
+  clearSearch(): void {
+    this.searchQuery.setValue('');
+    this.groupFilter.setValue('');
+    this.statusFilter.setValue('');
+    this.priorityFilter.setValue('');
+    this.loadData(1);
+  }
+
+  hasActiveSearch(): boolean {
+    return !!(
+      this.searchQuery.value?.trim() ||
+      this.groupFilter.value ||
+      this.statusFilter.value ||
+      this.priorityFilter.value
+    );
   }
 
   getGroupName(groupId: string): string {

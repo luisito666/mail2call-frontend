@@ -8,7 +8,7 @@ import { Contact, ContactCreate, ContactUpdate, PaginatedResponse } from '../mod
   providedIn: 'root'
 })
 export class ContactService {
-  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/contacts';
+  private readonly baseUrl = 'http://localhost:8000/api/v1/contacts';
 
   constructor(private http: HttpClient) {}
 
@@ -44,5 +44,38 @@ export class ContactService {
 
   deleteContact(id: string): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  searchContacts(params: {
+    q?: string;
+    name?: string;
+    phone?: string;
+    role?: string;
+    department?: string;
+    group_id?: string;
+    is_active?: boolean;
+    priority_min?: number;
+    priority_max?: number;
+    page?: number;
+    per_page?: number;
+  }): Observable<PaginatedResponse<Contact>> {
+    const queryParams: any = {};
+    
+    // Solo agregar parámetros que tengan valor
+    if (params.q) queryParams.q = params.q;
+    if (params.name) queryParams.name = params.name;
+    if (params.phone) queryParams.phone = params.phone;
+    if (params.role) queryParams.role = params.role;
+    if (params.department) queryParams.department = params.department;
+    if (params.group_id) queryParams.group_id = params.group_id;
+    if (params.is_active !== undefined) queryParams.is_active = params.is_active.toString();
+    if (params.priority_min !== undefined) queryParams.priority_min = params.priority_min.toString();
+    if (params.priority_max !== undefined) queryParams.priority_max = params.priority_max.toString();
+    if (params.page) queryParams.page = params.page.toString();
+    if (params.per_page) queryParams.per_page = params.per_page.toString();
+
+    return this.http.get<PaginatedResponse<Contact>>(`${this.baseUrl}/search`, {
+      params: queryParams
+    });
   }
 }
