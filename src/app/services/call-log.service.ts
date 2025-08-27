@@ -37,4 +37,26 @@ export class CallLogService {
   getCallLogsByContact(contactId: string): Observable<CallLog[]> {
     return this.http.get<CallLog[]>(`${this.baseUrl}/by-contact/${contactId}`);
   }
+
+  exportCallLogsCSV(startDate?: string, endDate?: string): Observable<Blob> {
+    const params: any = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    return this.http.get(`${this.baseUrl}/export/csv`, {
+      params,
+      responseType: 'blob'
+    });
+  }
+
+  exportCallLogsExcel(startDate?: string, endDate?: string): Observable<Blob> {
+    const params: any = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+
+    return this.http.get(`${this.baseUrl}/export/excel`, {
+      params,
+      responseType: 'blob'
+    });
+  }
 }

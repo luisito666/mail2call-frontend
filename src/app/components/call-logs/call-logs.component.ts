@@ -13,21 +13,60 @@ import { CallLog, Contact, PaginatedResponse } from '../../models/interfaces';
     <div class="page-container">
       <div class="page-header">
         <h1>Registro de Llamadas</h1>
-        <div class="filters">
-          <select [formControl]="statusFilter" class="filter-select">
-            <option value="">Todos los estados</option>
-            <option value="completed">Completadas</option>
-            <option value="failed">Fallidas</option>
-            <option value="busy">Ocupado</option>
-            <option value="no-answer">Sin respuesta</option>
-            <option value="in-progress">En progreso</option>
-          </select>
-          <input 
-            type="text" 
-            [formControl]="searchFilter"
-            placeholder="Buscar por teléfono o contacto..."
-            class="search-input"
-          />
+        <div class="header-actions">
+          <div class="filters">
+            <select [formControl]="statusFilter" class="filter-select">
+              <option value="">Todos los estados</option>
+              <option value="completed">Completadas</option>
+              <option value="failed">Fallidas</option>
+              <option value="busy">Ocupado</option>
+              <option value="no-answer">Sin respuesta</option>
+              <option value="in-progress">En progreso</option>
+            </select>
+            <input 
+              type="text" 
+              [formControl]="searchFilter"
+              placeholder="Buscar por teléfono o contacto..."
+              class="search-input"
+            />
+          </div>
+          
+          <div class="export-section">
+            <div class="date-filters">
+              <input 
+                type="date" 
+                [formControl]="startDateFilter"
+                placeholder="Fecha inicio"
+                class="date-input"
+              />
+              <input 
+                type="date" 
+                [formControl]="endDateFilter"
+                placeholder="Fecha fin"
+                class="date-input"
+              />
+            </div>
+            <div class="export-buttons">
+              <button 
+                (click)="exportToCSV()" 
+                [disabled]="isExporting()"
+                class="btn-secondary export-btn"
+                title="Exportar a CSV"
+              >
+                <span class="icon">📊</span>
+                CSV
+              </button>
+              <button 
+                (click)="exportToExcel()" 
+                [disabled]="isExporting()"
+                class="btn-primary export-btn"
+                title="Exportar a Excel"
+              >
+                <span class="icon">📈</span>
+                Excel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -324,17 +363,67 @@ import { CallLog, Contact, PaginatedResponse } from '../../models/interfaces';
       color: #1f2937;
     }
 
+    .header-actions {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
     .filters {
       display: flex;
       gap: 1rem;
       align-items: center;
     }
 
-    .filter-select, .search-input {
+    .export-section {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .date-filters {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .export-buttons {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .filter-select, .search-input, .date-input {
       padding: 0.5rem 0.75rem;
       border: 1px solid #d1d5db;
       border-radius: 6px;
       font-size: 0.875rem;
+    }
+
+    .date-input {
+      min-width: 140px;
+    }
+
+    .export-btn {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 80px;
+      justify-content: center;
+    }
+
+    .export-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .export-btn .icon {
+      font-size: 1rem;
     }
 
     .search-input {
@@ -795,6 +884,9 @@ export class CallLogsComponent implements OnInit {
 
   statusFilter = new FormControl('');
   searchFilter = new FormControl('');
+  startDateFilter = new FormControl('');
+  endDateFilter = new FormControl('');
+  isExporting = signal(false);
 
   constructor(
     private callLogService: CallLogService,
@@ -988,5 +1080,50 @@ export class CallLogsComponent implements OnInit {
     }
     
     return pages;
+  }
+
+  exportToCSV(): void {
+    this.isExporting.set(true);
+    const startDate = this.startDateFilter.value || undefined;
+    const endDate = this.endDateFilter.value || undefined;
+
+    this.callLogService.exportCallLogsCSV(startDate, endDate).subscribe({
+      next: (blob) => {
+        this.downloadFile(blob, 'call-logs.csv', 'text/csv');
+        this.isExporting.set(false);
+      },
+      error: (error) => {
+        console.error('Error exporting CSV:', error);
+        this.isExporting.set(false);
+      }
+    });
+  }
+
+  exportToExcel(): void {
+    this.isExporting.set(true);
+    const startDate = this.startDateFilter.value || undefined;
+    const endDate = this.endDateFilter.value || undefined;
+
+    this.callLogService.exportCallLogsExcel(startDate, endDate).subscribe({
+      next: (blob) => {
+        this.downloadFile(blob, 'call-logs.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        this.isExporting.set(false);
+      },
+      error: (error) => {
+        console.error('Error exporting Excel:', error);
+        this.isExporting.set(false);
+      }
+    });
+  }
+
+  private downloadFile(blob: Blob, filename: string, mimeType: string): void {
+    const url = window.URL.createObjectURL(new Blob([blob], { type: mimeType }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 }
