@@ -215,11 +215,11 @@ import { Trigger, TriggerCreate, TriggerUpdate, ContactGroup, PaginatedResponse 
                 <div class="form-group">
                   <label for="priority">Prioridad</label>
                   <select id="priority" formControlName="priority">
-                    <option value="1">1 - Baja</option>
-                    <option value="2">2 - Media</option>
+                    <option value="1">1 - Urgente</option>
+                    <option value="2">2 - Crítica</option>
                     <option value="3">3 - Alta</option>
-                    <option value="4">4 - Crítica</option>
-                    <option value="5">5 - Urgente</option>
+                    <option value="4">4 - Media</option>
+                    <option value="5">5 - Baja</option>
                   </select>
                 </div>
               </div>
@@ -397,13 +397,13 @@ import { Trigger, TriggerCreate, TriggerUpdate, ContactGroup, PaginatedResponse 
     }
 
     .priority-badge[data-priority="1"] {
-      background: #f0fdf4;
-      color: #166534;
+      background: #450a0a;
+      color: #fecaca;
     }
 
     .priority-badge[data-priority="2"] {
-      background: #fefce8;
-      color: #854d0e;
+      background: #fee2e2;
+      color: #991b1b;
     }
 
     .priority-badge[data-priority="3"] {
@@ -412,13 +412,13 @@ import { Trigger, TriggerCreate, TriggerUpdate, ContactGroup, PaginatedResponse 
     }
 
     .priority-badge[data-priority="4"] {
-      background: #fee2e2;
-      color: #991b1b;
+      background: #fefce8;
+      color: #854d0e;
     }
 
     .priority-badge[data-priority="5"] {
-      background: #450a0a;
-      color: #fecaca;
+      background: #f0fdf4;
+      color: #166534;
     }
 
     .custom-message {
