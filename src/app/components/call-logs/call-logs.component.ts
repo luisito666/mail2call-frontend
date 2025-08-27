@@ -20,8 +20,8 @@ import { CallLog, Contact, PaginatedResponse } from '../../models/interfaces';
               <option value="completed">Completadas</option>
               <option value="failed">Fallidas</option>
               <option value="busy">Ocupado</option>
-              <option value="no-answer">Sin respuesta</option>
-              <option value="in-progress">En progreso</option>
+              <option value="no_answer">Sin respuesta</option>
+              <option value="in_progress">En progreso</option>
             </select>
             <input 
               type="text" 
@@ -961,8 +961,8 @@ export class CallLogsComponent implements OnInit {
       'completed': 'Completada',
       'failed': 'Fallida',
       'busy': 'Ocupado',
-      'no-answer': 'Sin respuesta',
-      'in-progress': 'En progreso'
+      'no_answer': 'Sin respuesta',
+      'in_progress': 'En progreso'
     };
     return labels[status] || status;
   }
@@ -972,8 +972,8 @@ export class CallLogsComponent implements OnInit {
       'completed': 'completed',
       'failed': 'failed',
       'busy': 'busy',
-      'no-answer': 'no-answer',
-      'in-progress': 'in-progress'
+      'no_answer': 'no-answer',
+      'in_progress': 'in-progress'
     };
     return classes[status] || 'no-answer';
   }
