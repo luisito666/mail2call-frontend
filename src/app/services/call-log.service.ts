@@ -8,7 +8,7 @@ import { CallLog, PaginatedResponse } from '../models/interfaces';
   providedIn: 'root'
 })
 export class CallLogService {
-  private readonly baseUrl = 'http://localhost:8000/api/v1/call-logs';
+  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/call-logs';
 
   constructor(private http: HttpClient) {}
 

@@ -7,7 +7,7 @@ import { ContactGroupStats, ContactStats, TriggerStats, DailyCallStats } from '.
   providedIn: 'root'
 })
 export class StatsService {
-  private apiUrl = 'http://localhost:8000/api/v1/system-stats/counts';
+  private apiUrl = 'https://saas-api.luisito.dev/api/v1/system-stats/counts';
 
   constructor(private http: HttpClient) { }
 

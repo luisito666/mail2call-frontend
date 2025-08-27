@@ -7,7 +7,7 @@ import { AuthToken, LoginCredentials } from '../models/interfaces';
   providedIn: 'root'
 })
 export class AuthService {
-  private readonly baseUrl = 'http://localhost:8000/api/v1/auth';
+  private readonly baseUrl = 'https://saas-api.luisito.dev/api/v1/auth';
   private readonly tokenKey = 'access_token';
   
   isAuthenticated = signal(this.hasValidToken());
